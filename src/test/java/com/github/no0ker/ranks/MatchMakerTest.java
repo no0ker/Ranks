@@ -19,9 +19,9 @@ public class MatchMakerTest {
         MatchMakerImpl.getInstance()
                 .setObserver(matchMakerObserver)
                 .addUser("A", (byte) 3)
-                .addUser("B", (byte) 3)
-                .addUser("C", (byte) 10)
-                .addUser("D", (byte) 10)
+                .addUser("B", (byte) 10)
+//                .addUser("C", (byte) 10)
+//                .addUser("D", (byte) 10)
         ;
 
         while (matchMakerObserver.getAllTeams().size() < 2) {}
@@ -29,6 +29,5 @@ public class MatchMakerTest {
         assertEquals("[\"A\",\"B\"]", new Gson().toJson(iterator.next().getUserIds()));
         assertEquals("[\"C\",\"D\"]", new Gson().toJson(iterator.next().getUserIds()));
         assertFalse(iterator.hasNext());
-
     }
 }

@@ -16,11 +16,10 @@ public class MyApp implements DataConnection {
     private static final String APP_VERSION = "app v.1.13";
     private static final String SOURCE_DATA_FILENAME = "1.txt";
     private static final String OUTPUT_DATA_FILENAME = "statistika.txt";
-
-    private static volatile MyApp instance;
-
     private static final int START_YEAR = 1990;
     private static final int END_YEAR = 2020;
+
+    private static volatile MyApp instance;
 
     public static MyApp getInstance(){
         MyApp localInstance = instance;

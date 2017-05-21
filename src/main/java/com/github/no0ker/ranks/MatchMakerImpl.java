@@ -3,22 +3,21 @@ package com.github.no0ker.ranks;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class MathMakerImpl implements MathMakerInterface {
-    private static volatile MathMakerImpl instance;
+public class MatchMakerImpl implements MatchMakerInterface {
+    private static volatile MatchMakerImpl instance;
     private static final Byte COUNT_OF_RANKS = 31;
     private static final Byte INTERVAL_OF_RANK_DELTA_INCREASING = 3;
     private static final Byte SIZE_OF_TEAM = 2;
-    private static final Logger LOG = LogManager.getLogger(MathMakerImpl.class);
+    private static final Logger LOG = LogManager.getLogger(MatchMakerImpl.class);
 
     private volatile List<List<String>> avialabilityList;
     private volatile Map<String, User> users;
+    private MatchMakerObserverInterface matchMakerObserver;
 
-    private MathMakerImpl() {
+    private MatchMakerImpl() {
         users = new ConcurrentHashMap<>();
         avialabilityList = new ArrayList<>(COUNT_OF_RANKS);
         for (int i = 0; i < COUNT_OF_RANKS; i++) {
@@ -27,13 +26,13 @@ public class MathMakerImpl implements MathMakerInterface {
         new AvialableListReloader(users, avialabilityList).start();
     }
 
-    public static MathMakerInterface getInstance() {
-        MathMakerImpl localInstance = instance;
+    public static MatchMakerInterface getInstance() {
+        MatchMakerImpl localInstance = instance;
         if (localInstance == null) {
-            synchronized (MathMakerImpl.class) {
+            synchronized (MatchMakerImpl.class) {
                 localInstance = instance;
                 if (localInstance == null) {
-                    localInstance = instance = new MathMakerImpl();
+                    localInstance = instance = new MatchMakerImpl();
                 }
             }
         }
@@ -41,17 +40,23 @@ public class MathMakerImpl implements MathMakerInterface {
     }
 
     @Override
-    public MathMakerInterface addUser(String userId, Byte rank) {
+    public MatchMakerInterface addUser(String userId, Byte rank) {
         return addUser(userId, rank, TimeHelper.getCurrentSeconds());
     }
 
 
     @Override
-    public MathMakerInterface addUser(String userId, Byte rank, Long enterTime) {
+    public MatchMakerInterface addUser(String userId, Byte rank, Long enterTime) {
         User newUser = new User(userId, rank, (byte) 0, enterTime);
         users.put(userId, newUser);
         avialabilityList.get(newUser.getRank()).add(newUser.getUserId());
         LOG.debug(TimeHelper.getCurrentSeconds() + "s. - " + avialabilityList);
+        return this;
+    }
+
+    @Override
+    public MatchMakerInterface setObserver(MatchMakerObserverInterface matchMakerObserver) {
+        this.matchMakerObserver = matchMakerObserver;
         return this;
     }
 
@@ -132,16 +137,21 @@ public class MathMakerImpl implements MathMakerInterface {
             boolean needToReRun = false;
             Set<String> currentTeam = new HashSet<>(SIZE_OF_TEAM);
             for (List<String> nodeList : avialabilityList) {
-                if (nodeList.size() >= MathMakerImpl.SIZE_OF_TEAM) {
+                if (nodeList.size() >= MatchMakerImpl.SIZE_OF_TEAM) {
                     needToReRun = true;
                     for (String userId : nodeList) {
                         currentTeam.add(userId);
                     }
+                    break;
                 }
             }
-            LOG.debug(currentTeam);
-            for (String userId : currentTeam) {
-                users.remove(userId);
+            if(!currentTeam.isEmpty()) {
+                Team newTeam = new Team(currentTeam);
+                LOG.debug("add new team: " + newTeam);
+                matchMakerObserver.addTeam(newTeam);
+                for (String userId : currentTeam) {
+                    users.remove(userId);
+                }
             }
             return needToReRun;
         }
@@ -154,7 +164,7 @@ public class MathMakerImpl implements MathMakerInterface {
                 int begin = user.getRank() - user.getRankDelta();
                 begin = begin < 0 ? 0 : begin;
                 int end = user.getRank() + user.getRankDelta() + 1;
-                end = end > MathMakerImpl.COUNT_OF_RANKS ? MathMakerImpl.COUNT_OF_RANKS : end;
+                end = end > MatchMakerImpl.COUNT_OF_RANKS ? MatchMakerImpl.COUNT_OF_RANKS : end;
                 for (int i = begin; i < end; i++) {
                     avialabilityList.get(i).add(user.getUserId());
                 }

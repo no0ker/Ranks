@@ -7,8 +7,8 @@ import org.apache.logging.log4j.Logger;
 import java.io.*;
 
 interface DataConnection {
-    int loadDatas(int currentYear) throws IllegalArgumentException;
-    void saveData(int currentYear, int averageData) throws Exception;
+    int loadAvgDataOfYear(int currentYear) throws IllegalArgumentException;
+    void saveAvgDataOfYear(int currentYear, int averageData) throws Exception;
 }
 
 public class MyApp implements DataConnection {
@@ -40,11 +40,11 @@ public class MyApp implements DataConnection {
         try {
             System.out.println(APP_VERSION);
             for (int currYear = START_YEAR; currYear < END_YEAR; ++currYear) {
-                int averageValue = MyApp.getInstance().loadDatas(currYear);
+                int averageValue = MyApp.getInstance().loadAvgDataOfYear(currYear);
                 if (averageValue > 0) {
                     System.out.println(currYear + " " + averageValue);
                 }
-                MyApp.getInstance().saveData(currYear, averageValue);
+                MyApp.getInstance().saveAvgDataOfYear(currYear, averageValue);
             }
             System.out.println("complete");
         } catch (Exception e) {
@@ -52,7 +52,7 @@ public class MyApp implements DataConnection {
         }
     }
 
-    public int loadDatas(int currentYear) throws IllegalArgumentException {
+    public int loadAvgDataOfYear(int currentYear) throws IllegalArgumentException {
         int result = 0;
         int count = 0;
         try (BufferedReader br = new BufferedReader(new FileReader(SOURCE_DATA_FILENAME))) {
@@ -86,7 +86,7 @@ public class MyApp implements DataConnection {
         }
     }
 
-    public void saveData(int currentYear, int averageData) throws Exception {
+    public void saveAvgDataOfYear(int currentYear, int averageData) throws Exception {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(OUTPUT_DATA_FILENAME, true))) {
             String fileRow = (currentYear - START_YEAR) + " " + currentYear + " " + averageData + "\n";
             bw.write(fileRow);

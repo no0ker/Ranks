@@ -1,9 +1,9 @@
 package com.github.no0ker.ranks;
 
-import java.time.Clock;
+import java.util.Date;
 
 public class TimeHelper {
     public static Long getCurrentSeconds(){
-        return Clock.systemDefaultZone().instant().getEpochSecond();
+        return new Date().getTime()/1000;
     }
 }

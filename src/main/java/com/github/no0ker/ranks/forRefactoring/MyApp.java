@@ -21,7 +21,9 @@ public class MyApp implements DataConnection {
 
     private static volatile MyApp instance;
 
-    public static MyApp getInstance(){
+    private MyApp() {}
+
+    private static MyApp getInstance(){
         MyApp localInstance = instance;
         if(localInstance == null){
             synchronized (MyApp.class){
@@ -34,7 +36,6 @@ public class MyApp implements DataConnection {
         return localInstance;
     }
 
-    private MyApp() {}
 
     public static void main(String[] args) {
         try {

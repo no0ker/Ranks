@@ -4,26 +4,34 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class MatchMakerImpl implements MatchMakerInterface {
     private static volatile MatchMakerImpl instance;
-    private static final Byte COUNT_OF_RANKS = 31;
-    private static final Byte INTERVAL_OF_RANK_DELTA_INCREASING = 3;
-    private static final Byte SIZE_OF_TEAM = 2;
+    private static final Byte COUNT_OF_RANKS = 30;
+    private static final Byte INTERVAL_OF_RANK_DELTA_INCREASING = 5;
+    private static final Byte SIZE_OF_TEAM = 8;
     private static final Logger LOG = LogManager.getLogger(MatchMakerImpl.class);
+    private static final ReentrantReadWriteLock dataLock = new ReentrantReadWriteLock();
 
     private volatile List<List<String>> avialabilityList;
     private volatile Map<String, User> users;
+
     private MatchMakerObserverInterface matchMakerObserver;
 
     private MatchMakerImpl() {
-        users = new ConcurrentHashMap<>();
-        avialabilityList = new ArrayList<>(COUNT_OF_RANKS);
-        for (int i = 0; i < COUNT_OF_RANKS; i++) {
-            avialabilityList.add(i, new LinkedList<String>());
+        try {
+            dataLock.writeLock().lock();
+            users = new HashMap<>();
+            avialabilityList = new ArrayList<>(COUNT_OF_RANKS);
+            for (int i = 0; i < COUNT_OF_RANKS; i++) {
+                avialabilityList.add(i, new LinkedList<String>());
+            }
+        } finally {
+            dataLock.writeLock().unlock();
         }
-        new AvialableListReloader(users, avialabilityList).start();
+        new AvialableListReloader(users, avialabilityList, dataLock).start();
+
     }
 
     public static MatchMakerInterface getInstance() {
@@ -48,9 +56,14 @@ public class MatchMakerImpl implements MatchMakerInterface {
     @Override
     public MatchMakerInterface addUser(String userId, Byte rank, Long enterTime) {
         User newUser = new User(userId, rank, (byte) 0, enterTime);
-        users.put(userId, newUser);
-        avialabilityList.get(newUser.getRank()).add(newUser.getUserId());
-        LOG.debug(TimeHelper.getCurrentSeconds() + "s. - " + avialabilityList);
+        try {
+            dataLock.writeLock().lock();
+            users.put(userId, newUser);
+            avialabilityList.get(newUser.getRank()).add(newUser.getUserId());
+            LOG.debug(TimeHelper.getCurrentSeconds() + "s. - " + avialabilityList);
+        } finally {
+            dataLock.writeLock().unlock();
+        }
         return this;
     }
 
@@ -109,27 +122,42 @@ public class MatchMakerImpl implements MatchMakerInterface {
     private class AvialableListReloader extends Thread {
         private final Logger LOG = LogManager.getLogger(AvialableListReloader.class);
 
+        private ReentrantReadWriteLock dataLock;
         private Map<String, User> users;
         private List<List<String>> avialabilityList;
 
-        public AvialableListReloader(Map<String, User> users, List<List<String>> avialabilityList) {
+        public AvialableListReloader(Map<String, User> users, List<List<String>> avialabilityList, ReentrantReadWriteLock dataLock) {
             this.users = users;
             this.avialabilityList = avialabilityList;
+            this.dataLock = dataLock;
         }
 
         @Override
         public void run() {
             while (true) {
-                refillAvialableList();
-                while (findAndRemove()) {
+                try {
+                    dataLock.writeLock().lock();
                     refillAvialableList();
+                    while (findAndRemove()) {
+                        refillAvialableList();
+                    }
+                } finally {
+                    dataLock.writeLock().unlock();
                 }
+
                 try {
                     Thread.sleep(1000L);
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    LOG.error("there is an InterruptedException", e);
+                    break;
                 }
-                incrementRankDeltas();
+
+                try {
+                    dataLock.writeLock().lock();
+                    incrementRankDeltas();
+                } finally {
+                    dataLock.writeLock().unlock();
+                }
             }
         }
 
@@ -145,7 +173,7 @@ public class MatchMakerImpl implements MatchMakerInterface {
                     break;
                 }
             }
-            if(!currentTeam.isEmpty()) {
+            if (!currentTeam.isEmpty()) {
                 Team newTeam = new Team(currentTeam);
                 LOG.debug("add new team: " + newTeam);
                 matchMakerObserver.addTeam(newTeam);
